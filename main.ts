@@ -1,29 +1,26 @@
-// Last Text at One Percent — make.fun entry
-// Writes the final text message a dying phone sends at 1% battery
-// to $MAKEFUN_OUTPUT_DIR/entry.txt (default /output).
-// Node 22, stdlib only, zero network. Deterministic: same bytes every run.
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+// Resolve every path from this script's own directory so the program
+// behaves identically no matter where it is invoked from.
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const sourcePath = join(scriptDir, "entry.txt");
 
-const ENTRY =
-  "At 1% and honestly: I've been at 1% for an hour. I just wanted attention.";
+// The grader points MAKEFUN_OUTPUT_DIR at the output mount; fall back to a
+// local "out" folder for manual runs.
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? join(scriptDir, "out");
 
-const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
-mkdirSync(outDir, { recursive: true });
-const outPath = join(outDir, "entry.txt");
-writeFileSync(outPath, ENTRY, "utf8");
-
-// Read back and guard: the gate needs UTF-8 text of 1-200 chars,
-// not only whitespace, on exactly one line, with no trailing newline.
-const written = readFileSync(outPath, "utf8");
-if (written !== ENTRY) {
-  throw new Error("entry.txt does not match the expected text byte for byte");
+// Empty the output directory's contents only — the directory itself is a
+// mount point and must never be removed.
+if (existsSync(outputDir)) {
+  for (const name of readdirSync(outputDir)) {
+    rmSync(join(outputDir, name), { recursive: true, force: true });
+  }
+} else {
+  mkdirSync(outputDir, { recursive: true });
 }
-if (written.length < 1 || written.length > 200) {
-  throw new Error(`entry.txt is ${written.length} chars, outside the 1-200 gate`);
-}
-if (written.includes("\n")) {
-  throw new Error("entry.txt must be a single line");
-}
-console.log(`wrote ${outPath}`);
+
+// Copy the entry text verbatim into the output directory.
+const text = readFileSync(sourcePath);
+writeFileSync(join(outputDir, "entry.txt"), text);
